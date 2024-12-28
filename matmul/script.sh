@@ -1,7 +1,7 @@
 #!/bin/bash
 low=5
 high=14
-iterations=1
+iterations=3
 cd ./cpu && make
 cd ../gpu && make
 cd ..
