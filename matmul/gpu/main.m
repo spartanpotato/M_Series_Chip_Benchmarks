@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import "MetalMatmul.h"
+#import "TimeUtils.h"
 
 int main(int argc, char **argv) {
     @autoreleasepool {
@@ -22,7 +23,6 @@ int main(int argc, char **argv) {
             return -1;
         }
 
-        // Guarda memoria para matrices
         float *A = malloc(N * N * sizeof(float));
         float *B = malloc(N * N * sizeof(float));
         float *C = malloc(N * N * sizeof(float)); 
@@ -34,8 +34,8 @@ int main(int argc, char **argv) {
 
         // Inicializa matrices con valores al azar
         for (int i = 0; i < N * N; ++i) {
-            A[i] = (float)(arc4random_uniform(100)) / 10.0; 
-            B[i] = (float)(arc4random_uniform(100)) / 10.0; 
+            A[i] = (float)(rand() % 100) / 10.0;
+            B[i] = (float)(rand() % 100) / 10.0;
         }
         // Inicializa matriz de resulados con ceros
         memset(C, 0, N * N * sizeof(float)); 
@@ -43,15 +43,6 @@ int main(int argc, char **argv) {
         // Realiza multiplicacion de matrices
         MetalMatrixMultiplication *matrixMultiplication = [[MetalMatrixMultiplication alloc] initWithDevice:device];
         [matrixMultiplication performMatrixMultiplicationWithMatrixA:A rowsA:N colsA:N matrixB:B rowsB:N colsB:N result:C];
-
-        // Temporal, para comprobar resultados coherentes (que no este rellena de ceros)
-        NSLog(@"Primeros 5X5 resultados:");
-        for (int i = 0; i < MIN(5, N); ++i) {
-            for (int j = 0; j < MIN(5, N); ++j) {
-                printf("%f ", C[i * N + j]);
-            }
-            printf("\n");
-        }
 
         // Liberar memoria
         free(A);

@@ -1,4 +1,7 @@
+#include <stdio.h>
 #import "MetalMatmul.h"
+#include "TimeUtils.h"
+
 
 @interface MetalMatrixMultiplication ()
 
@@ -50,11 +53,20 @@
         NSLog(@"Dimensiones de la matriz invalidas para multiplicacion.");
         return;
     }
+
+    // Timer starts
+    uint64_t startTime = startTimer();
     
     // Crea objetos de las matrices
     MPSMatrix *matA = [self createMatrixWithData:matrixA rows:rowsA cols:colsA];
     MPSMatrix *matB = [self createMatrixWithData:matrixB rows:rowsB cols:colsB];
     MPSMatrix *matC = [self createMatrixWithData:resultMatrix rows:rowsA cols:colsB];
+
+    // Timer ends
+    double elapsedTime = endTimer(startTime);
+
+    // Output time
+    NSLog(@"Tiempo crear MPSMatrix: %f.", elapsedTime);
     
     // Crea kernel de multiplicacion de matrices dado por MPS
     // MPSMatrixMultiplication es la operacion alpha * A * B + beta * C.
@@ -71,23 +83,43 @@
     
     // Crea un buffer para comandos a enviar a la gpu
     id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
-    // Usa objeto NSDate para medir tiempo
-    NSDate *startTime = [NSDate date];
+
+    // Timer starts
+    startTime = startTimer();
+
     // codifica kernel en el commandBuffer
     [matMul encodeToCommandBuffer:commandBuffer leftMatrix:matA rightMatrix:matB resultMatrix:matC];
-    
-    // Crea un completionHandler para guardar el tiempo que toma ejecutar kernels en commandBuffer
-    [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
-        NSTimeInterval elapsedTime = [[NSDate date] timeIntervalSinceDate:startTime];
-        NSLog(@"Time taken for GPU computation: %f ms", elapsedTime * 1000);
-    }];
     
     // Ejecuta
     [commandBuffer commit];
     [commandBuffer waitUntilCompleted];
+
+    // Timer ends
+    elapsedTime = endTimer(startTime);
+
+    // Output time
+    NSLog(@"Tiempo computo GPU: %f.", elapsedTime);
     
     // Copia resultados del objeto MPSMatrix en la matriz normal
     memcpy(resultMatrix, matC.data.contents, rowsA * colsB * sizeof(float));
+
+    // Escribe los tiempos y dimensiones en un archivo CSV
+    FILE *file = fopen("times.csv", "a");
+    if (file == NULL) {
+        NSLog(@"Error al abrir o crear el archivo times.csv");
+        return;
+    }
+
+    // Verifica si el archivo está vacío y escribe el encabezado si es necesario
+    fseek(file, 0, SEEK_END);
+    if (ftell(file) == 0) {
+        fprintf(file, "N,ComputationTime(ms),CPU,GPU\n");
+    }
+
+    // Agrega los datos
+    fprintf(file, "%d,%f,0,1\n", colsB, elapsedTime);
+
+    fclose(file);
 }
 
 
