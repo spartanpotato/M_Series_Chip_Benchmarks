@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import "MetalMatmul.h"
 #import "TimeUtils.h"
+#import "../../Verify.h"
 
 int main(int argc, char **argv) {
     @autoreleasepool {
@@ -12,8 +13,8 @@ int main(int argc, char **argv) {
         }
 
         // Toma argumentos
-        if (argc < 2) {
-            NSLog(@"Se debe ejecutar como ./matmul N, donde las matrices son tamaño N x N\n");
+        if (argc < 3) {
+            NSLog(@"Se debe ejecutar como ./matmul N check\n");
             return -1;
         }
         
@@ -22,6 +23,8 @@ int main(int argc, char **argv) {
             NSLog(@"El tamaño de la matriz debe ser un numero positivo");
             return -1;
         }
+
+        int check = atoi(argv[2]);
 
         float *A = malloc(N * N * sizeof(float));
         float *B = malloc(N * N * sizeof(float));
@@ -42,7 +45,15 @@ int main(int argc, char **argv) {
 
         // Realiza multiplicacion de matrices
         MetalMatrixMultiplication *matrixMultiplication = [[MetalMatrixMultiplication alloc] initWithDevice:device];
-        [matrixMultiplication performMatrixMultiplicationWithMatrixA:A rowsA:N colsA:N matrixB:B rowsB:N colsB:N result:C];
+        [matrixMultiplication performMatrixMultiplicationWithMatrixA:A 
+                                                                rowsA:N 
+                                                                colsA:N 
+                                                                matrixB:B 
+                                                                rowsB:N 
+                                                                colsB:N 
+                                                                N:N 
+                                                                result:C
+                                                                check:check];
 
         // Liberar memoria
         free(A);

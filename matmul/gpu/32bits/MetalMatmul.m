@@ -1,6 +1,7 @@
 #include <stdio.h>
 #import "MetalMatmul.h"
 #include "TimeUtils.h"
+#include "../../Verify.h"
 
 
 @interface MetalMatrixMultiplication ()
@@ -27,19 +28,48 @@
 }
 
 // Convierte una matriz normal en un objeto MPSMatrix, optimizado para computos en la gpu
-- (MPSMatrix *)createMatrixWithData:(float *)data rows:(int)rows cols:(int)cols {
-    size_t dataSize = rows * cols * sizeof(float); // Calcula tamaño
+- (MPSMatrix *)createMatrixWithData:(float *)data
+                               rows:(int)rows
+                               cols:(int)cols
+                             buffer:(id<MTLBuffer> *)outBuffer {
+    // Calcula tamaño 
+    size_t dataSize = rows * cols * sizeof(float);
 
-    // Define buffer, la opcion MTLResourceStorageModeShared dice que puede ser accedido por cpu o gpu
-    id<MTLBuffer> buffer = [self.device newBufferWithBytes:data length:dataSize options:MTLResourceStorageModeShared];
-    // Define datos de la matriz con objeto dado por MPS
+    // Crea private buffer
+    id<MTLBuffer> privateBuffer = [self.device newBufferWithLength:dataSize options:MTLResourceStorageModePrivate];
+
+    // Crea shared buffer temporal para pasar data de la matriz original al private buffer
+    id<MTLBuffer> sharedBuffer = [self.device newBufferWithBytes:data length:dataSize options:MTLResourceStorageModeShared];
+
+    // Crea command buffer para realizar cambio
+    id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
+
+    // Crea blit command para copiar la matriz
+    id<MTLBlitCommandEncoder> blitEncoder = [commandBuffer blitCommandEncoder];
+    [blitEncoder copyFromBuffer:sharedBuffer sourceOffset:0 toBuffer:privateBuffer destinationOffset:0 size:dataSize];
+    [blitEncoder endEncoding];
+
+    // Commit 
+    [commandBuffer commit];
+    [commandBuffer waitUntilCompleted];
+
+    // Alinea rowBytes a 256 para mejorar performance
+    size_t rowBytes = ((cols * sizeof(float) + 255) / 256) * 256;
+
+    // Crea an MPSMatrixDescriptor(metadata)
     MPSMatrixDescriptor *descriptor = [MPSMatrixDescriptor matrixDescriptorWithRows:rows
                                                                             columns:cols
-                                                                           rowBytes:cols * sizeof(float)
-                                                                            dataType:MPSDataTypeFloat32];
-    // Regresa objeto MPSMatrix de la matriz
-    return [[MPSMatrix alloc] initWithBuffer:buffer descriptor:descriptor];
+                                                                           rowBytes:rowBytes
+                                                                           dataType:MPSDataTypeFloat32];
+
+    // Puntero
+    *outBuffer = privateBuffer;
+
+    // Regresa MPSMatrix con informacion dada
+    return [[MPSMatrix alloc] initWithBuffer:privateBuffer descriptor:descriptor];
 }
+
+
 
 // Funcion principal
 - (void)performMatrixMultiplicationWithMatrixA:(float *)matrixA
@@ -48,7 +78,9 @@
                                        matrixB:(float *)matrixB
                                         rowsB:(int)rowsB
                                         colsB:(int)colsB
-                                      result:(float *)resultMatrix {
+                                       N:(int)N
+                                      result:(float *)resultMatrix
+                                      check:(int)check {
     if (colsA != rowsB) {
         NSLog(@"Dimensiones de la matriz invalidas para multiplicacion.");
         return;
@@ -58,9 +90,10 @@
     uint64_t startTime = startTimer();
     
     // Crea objetos de las matrices
-    MPSMatrix *matA = [self createMatrixWithData:matrixA rows:rowsA cols:colsA];
-    MPSMatrix *matB = [self createMatrixWithData:matrixB rows:rowsB cols:colsB];
-    MPSMatrix *matC = [self createMatrixWithData:resultMatrix rows:rowsA cols:colsB];
+    id<MTLBuffer> bufferA, bufferB, bufferC;
+    MPSMatrix *matA = [self createMatrixWithData:matrixA rows:rowsA cols:colsA buffer:&bufferA];
+    MPSMatrix *matB = [self createMatrixWithData:matrixB rows:rowsB cols:colsB buffer:&bufferB];
+    MPSMatrix *matC = [self createMatrixWithData:resultMatrix rows:rowsA cols:colsB buffer:&bufferC];
 
     // Timer ends
     double elapsedTime = endTimer(startTime);
@@ -97,11 +130,38 @@
     // Timer ends
     elapsedTime = endTimer(startTime);
 
+    // Calcular FLOPS
+    double flops = (2.0 * N * N * N) / (elapsedTime / 1000);
+    NSLog(@"FLOPS: %f GFLOPS\n", flops / 1e9);
+
     // Output time
     NSLog(@"Tiempo computo GPU: %f.", elapsedTime);
-    
-    // Copia resultados del objeto MPSMatrix en la matriz normal
-    memcpy(resultMatrix, matC.data.contents, rowsA * colsB * sizeof(float));
+
+
+    if (check == 1){
+        // Crea shared buffer que puede ser usado por la cpu
+        id<MTLBuffer> stagingBuffer = [self.device newBufferWithLength:(rowsA * colsB * sizeof(float))
+                                                           options:MTLResourceStorageModeShared];
+
+        // Copia data de private buffer a shared buffer usando blitEncoder
+        id<MTLCommandBuffer> blitCommandBuffer = [self.commandQueue commandBuffer];
+        id<MTLBlitCommandEncoder> blitEncoder = [blitCommandBuffer blitCommandEncoder];
+
+        // Hacer la copia
+        [blitEncoder copyFromBuffer:bufferC sourceOffset:0 toBuffer:stagingBuffer destinationOffset:0 size:rowsA * colsB * sizeof(float)];
+        [blitEncoder endEncoding];
+
+        // Commit
+        [blitCommandBuffer commit];
+        [blitCommandBuffer waitUntilCompleted];
+
+        // Verificar resultado
+        resultMatrix = (float *)stagingBuffer.contents;
+        if (verify_matrix_product(matrixA, matrixB, resultMatrix, N, N, N)) {
+            NSLog(@"El calculo fue correcto.");
+        }
+    }
+
 
     // Escribe los tiempos y dimensiones en un archivo CSV
     FILE *file = fopen("times.csv", "a");
@@ -113,11 +173,11 @@
     // Verifica si el archivo está vacío y escribe el encabezado si es necesario
     fseek(file, 0, SEEK_END);
     if (ftell(file) == 0) {
-        fprintf(file, "N,ComputationTime(ms),CPU,GPU\n");
+        fprintf(file, "N,ComputationTime(ms),GFLOPS,CPU,GPU\n");
     }
 
     // Agrega los datos
-    fprintf(file, "%d,%f,0,1\n", colsB, elapsedTime);
+    fprintf(file, "%d,%f,%f,0,1\n", N, elapsedTime,flops / 1e9);
 
     fclose(file);
 }

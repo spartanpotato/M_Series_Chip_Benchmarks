@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <Accelerate/Accelerate.h>
 #include <time.h>
+#include "../../Verify.h"
 
 // Genera matriz
 void generate_random_matrix(float *matrix, int size) {
@@ -11,8 +12,8 @@ void generate_random_matrix(float *matrix, int size) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        printf("Se debe ejecutar como ./matmul N");
+    if (argc != 3) {
+        printf("Se debe ejecutar como ./matmul N Check");
         return 1;
     }
 
@@ -21,6 +22,8 @@ int main(int argc, char *argv[]) {
         printf("N debe ser entero positivo");
         return 1;
     }
+
+    int check = atoi(argv[2]);
 
     // Reserva memoria para matrices
     float *A = (float *)malloc(N * N * sizeof(float));
@@ -55,8 +58,21 @@ int main(int argc, char *argv[]) {
     long mul_nanoseconds = end_mul.tv_nsec - start_mul.tv_nsec;
     double mul_elapsedTime = mul_seconds * 1000.0 + mul_nanoseconds / 1000000.0;
 
+
+    // Calcular FLOPS
+    double flops = (2.0 * N * N * N) / (mul_elapsedTime / 1000);
+
+    // Verificar correctitud
+    if(check == 1){
+        bool isCorrect = verify_matrix_product(A, B, C, N, N, N);
+        if (isCorrect){
+            printf("El calculo fue correcto\n");
+        }
+    }
+
     // Imprimir tiempo
     printf("Tiempo computo CPU: %f ms\n", mul_elapsedTime);
+    printf("FLOPS: %f GFLOPS\n", flops / 1e9);
 
     // Escribe los tiempos y N en un archivo CSV
     FILE *file = fopen("times.csv", "a");
@@ -71,11 +87,11 @@ int main(int argc, char *argv[]) {
     // Verifica si el archivo está vacío y escribe el encabezado si es necesario
     fseek(file, 0, SEEK_END);
     if (ftell(file) == 0) {
-        fprintf(file, "N,ComputationTime(ms),CPU,GPU\n");
+        fprintf(file, "N,ComputationTime(ms),FLOPS(GFLOPS),CPU,GPU\n");
     }
 
     // Agrega los datos
-    fprintf(file, "%d,%f,1,0\n", N, mul_elapsedTime);
+    fprintf(file, "%d,%f,%f,1,0\n", N, mul_elapsedTime, flops / 1e9);
 
     fclose(file);
 

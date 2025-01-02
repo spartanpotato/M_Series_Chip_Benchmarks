@@ -16,6 +16,8 @@
                                      matrixB:(float *)matrixB
                                       rowsB:(int)rowsB
                                       colsB:(int)colsB
-                                    result:(float *)resultMatrix;
+                                     N:(int)N
+                                    result:(float *)resultMatrix
+                                    check:(int)check;
 
 @end

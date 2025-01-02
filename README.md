@@ -16,3 +16,5 @@ Inside the matmul folder use "bash script.sh" it will compile and execute with t
 You need to have pandas installed. <br />
 Inside the matmul folder, after having used the script, use "python Graficar.py".
 
+## Considerations
+Apple's accelerate depends on the number of cores veclib is allowed to use, to change them use "export VECLIB_MAXIMUM_THREADS=num_cores"

@@ -2,7 +2,7 @@ CC = clang
 
 OUTPUT = matmul
 
-SOURCES = main.m MetalMatmul.m TimeUtils.m
+SOURCES = main.m MetalMatmul.m TimeUtils.m ../../Verify.c
 
 FRAMEWORKS = -framework Foundation -framework Metal -framework MetalPerformanceShaders
 
