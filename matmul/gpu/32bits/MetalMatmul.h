@@ -1,15 +1,14 @@
-#import <Foundation/Foundation.h> // Funciones basicas de objective c
-#import <Metal/Metal.h> // Metal, equivalente de cuda para maquinas apple
-#import <MetalPerformanceShaders/MetalPerformanceShaders.h> // Kernels de metal optimizadas para hardware de apple
+#import <Foundation/Foundation.h> // Basic obj c functions
+#import <Metal/Metal.h> // Metal
+#import <MetalPerformanceShaders/MetalPerformanceShaders.h> // Apple's hardware optimized metal kernels
 
-// Definicion de una clase de objective c para realizar la multiplicacion de matrices
-// Hereda de NSObject, clase basica de objective c
+// Class to perform matmul
 @interface MetalMatrixMultiplication : NSObject
 
-// Iicializador
+// Initializer
 - (instancetype)initWithDevice:(id<MTLDevice>)device;
 
-// Funcion para realizar multplicacion de matrices
+// Function to perform matmul
 - (void)performMatrixMultiplicationWithMatrixA:(float *)matrixA
                                       rowsA:(int)rowsA
                                       colsA:(int)colsA

@@ -1,8 +1,8 @@
 #include <mach/mach_time.h>
 #include <stdint.h>
 
-// Funcion para obetenr tiempo de inicio
+// Gets start time
 uint64_t startTimer();
 
-// Funcion para obtener tiempo transcurrido
+// Gets time passed
 double endTimer(uint64_t startTime);

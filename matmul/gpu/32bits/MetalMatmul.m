@@ -6,9 +6,8 @@
 
 @interface MetalMatrixMultiplication ()
 
-// Propiedades
-// device: Metal device que representa a la gpu
-// commandQueue: Metal command queue que se usa para enviar instrucciones a la gpu
+// device: Metal device that represents the gpu
+// commandQueue: Metal command queue used to send instructions to the gpu
 @property (nonatomic, strong) id<MTLDevice> device;
 @property (nonatomic, strong) id<MTLCommandQueue> commandQueue;
 
@@ -16,35 +15,36 @@
 
 @implementation MetalMatrixMultiplication
 
-// Inicializador: inicializa el objeto MetalMatrixMultiplication con el device dado
+
+// Initializer: Initializes the object MetalMatrixMultiplication with the given device
 - (instancetype)initWithDevice:(id<MTLDevice>)device {
     self = [super init];
     if (self) {
-        // Se definen ivars (instance variables) para device y command queue del objeto
+        // Instance variables (ivars) are defined for the device and command queue of the object
         _device = device;
         _commandQueue = [device newCommandQueue];
     }
     return self;
 }
 
-// Convierte una matriz normal en un objeto MPSMatrix, optimizado para computos en la gpu
+// Converts a normal matrix into an MPSMatrix object optimized for computations on the GPU
 - (MPSMatrix *)createMatrixWithData:(float *)data
                                rows:(int)rows
                                cols:(int)cols
                              buffer:(id<MTLBuffer> *)outBuffer {
-    // Calcula tamaño 
+    // Calculates size
     size_t dataSize = rows * cols * sizeof(float);
 
-    // Crea private buffer
+    // Creates private buffer
     id<MTLBuffer> privateBuffer = [self.device newBufferWithLength:dataSize options:MTLResourceStorageModePrivate];
 
-    // Crea shared buffer temporal para pasar data de la matriz original al private buffer
+    // Creates a temporary shared buffer to transfer data from the original matrix to the private buffer
     id<MTLBuffer> sharedBuffer = [self.device newBufferWithBytes:data length:dataSize options:MTLResourceStorageModeShared];
 
-    // Crea command buffer para realizar cambio
+    // Creates a command buffer to execute the transfer
     id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
 
-    // Crea blit command para copiar la matriz
+    // Creates a blit command to copy the matrix
     id<MTLBlitCommandEncoder> blitEncoder = [commandBuffer blitCommandEncoder];
     [blitEncoder copyFromBuffer:sharedBuffer sourceOffset:0 toBuffer:privateBuffer destinationOffset:0 size:dataSize];
     [blitEncoder endEncoding];
@@ -53,25 +53,25 @@
     [commandBuffer commit];
     [commandBuffer waitUntilCompleted];
 
-    // Alinea rowBytes a 256 para mejorar performance
+    // Aligns rowBytes to 256 for performance improvement
     size_t rowBytes = ((cols * sizeof(float) + 255) / 256) * 256;
 
-    // Crea an MPSMatrixDescriptor(metadata)
+    // Creates an MPSMatrixDescriptor (metadata)
     MPSMatrixDescriptor *descriptor = [MPSMatrixDescriptor matrixDescriptorWithRows:rows
                                                                             columns:cols
                                                                            rowBytes:rowBytes
                                                                            dataType:MPSDataTypeFloat32];
 
-    // Puntero
+    // Pointer
     *outBuffer = privateBuffer;
 
-    // Regresa MPSMatrix con informacion dada
+    // Returns an MPSMatrix with the given information
     return [[MPSMatrix alloc] initWithBuffer:privateBuffer descriptor:descriptor];
 }
 
 
 
-// Funcion principal
+// Main function
 - (void)performMatrixMultiplicationWithMatrixA:(float *)matrixA
                                         rowsA:(int)rowsA
                                         colsA:(int)colsA
@@ -89,7 +89,7 @@
     // Timer starts
     uint64_t startTime = startTimer();
     
-    // Crea objetos de las matrices
+    // Creates MPSMatrix objects
     id<MTLBuffer> bufferA, bufferB, bufferC;
     MPSMatrix *matA = [self createMatrixWithData:matrixA rows:rowsA cols:colsA buffer:&bufferA];
     MPSMatrix *matB = [self createMatrixWithData:matrixB rows:rowsB cols:colsB buffer:&bufferB];
@@ -98,12 +98,12 @@
     // Timer ends
     double elapsedTime = endTimer(startTime);
 
-    // Output time
+    // Output MPSMatrix creation time
     NSLog(@"Tiempo crear MPSMatrix: %f.", elapsedTime);
     
-    // Crea kernel de multiplicacion de matrices dado por MPS
-    // MPSMatrixMultiplication es la operacion alpha * A * B + beta * C.
-    // Para simular calulo matmul basta con definir beta como 0
+    // Creates a matrix multiplication kernel provided by MPS
+    // MPSMatrixMultiplication is the operation alpha * A * B + beta * C.
+    // To simulate a matmul calculation, simply set beta to 0
     float alpha = 1.0, beta = 0.0;
     MPSMatrixMultiplication *matMul = [[MPSMatrixMultiplication alloc] initWithDevice:self.device
                                                                           transposeLeft:NO
@@ -114,23 +114,35 @@
                                                                                 alpha:alpha
                                                                                  beta:beta];
     
-    // Crea un buffer para comandos a enviar a la gpu
+    // Creates a command buffer to send commands to the GPU
     id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
+
+    // Call a shell command using system() to store energy usage
+    int ret = system("sudo powermetrics -i 1 --sampler cpu_power | while read line; do echo \"$(gdate '+%H:%M:%S.%3N'),$line\"; done | grep -E \"CPU Power|GPU Power\" | awk -F': ' '{print $1 \",\" $2}' >> power_metrics.csv &");
+
+    if (ret == 0) {
+        NSLog(@"System call succeeded!");
+    } else {
+        NSLog(@"System call failed!");
+    }
 
     // Timer starts
     startTime = startTimer();
 
-    // codifica kernel en el commandBuffer
+    // Encodes the kernel into the commandBuffer
     [matMul encodeToCommandBuffer:commandBuffer leftMatrix:matA rightMatrix:matB resultMatrix:matC];
     
-    // Ejecuta
+    // Commits
     [commandBuffer commit];
     [commandBuffer waitUntilCompleted];
 
     // Timer ends
     elapsedTime = endTimer(startTime);
 
-    // Calcular FLOPS
+    // Kills command stop measuring power usage
+    system("sudo pkill -f 'powermetrics'");
+
+    // Calculates FLOPS
     double flops = (2.0 * N * N * N) / (elapsedTime / 1000);
     NSLog(@"FLOPS: %f GFLOPS\n", flops / 1e9);
 
@@ -139,15 +151,15 @@
 
 
     if (check == 1){
-        // Crea shared buffer que puede ser usado por la cpu
+        // Creates shared buffer to be used by the cpu
         id<MTLBuffer> stagingBuffer = [self.device newBufferWithLength:(rowsA * colsB * sizeof(float))
                                                            options:MTLResourceStorageModeShared];
 
-        // Copia data de private buffer a shared buffer usando blitEncoder
+        // Copies data from the private buffer to the shared buffer using a blitEncoder
         id<MTLCommandBuffer> blitCommandBuffer = [self.commandQueue commandBuffer];
         id<MTLBlitCommandEncoder> blitEncoder = [blitCommandBuffer blitCommandEncoder];
 
-        // Hacer la copia
+        // Makes copy
         [blitEncoder copyFromBuffer:bufferC sourceOffset:0 toBuffer:stagingBuffer destinationOffset:0 size:rowsA * colsB * sizeof(float)];
         [blitEncoder endEncoding];
 
@@ -155,7 +167,7 @@
         [blitCommandBuffer commit];
         [blitCommandBuffer waitUntilCompleted];
 
-        // Verificar resultado
+        // Verifies result
         resultMatrix = (float *)stagingBuffer.contents;
         if (verify_matrix_product(matrixA, matrixB, resultMatrix, N, N, N)) {
             NSLog(@"El calculo fue correcto.");
@@ -163,20 +175,20 @@
     }
 
 
-    // Escribe los tiempos y dimensiones en un archivo CSV
+    // Writes the times and dimensions to a CSV file
     FILE *file = fopen("times.csv", "a");
     if (file == NULL) {
         NSLog(@"Error al abrir o crear el archivo times.csv");
         return;
     }
 
-    // Verifica si el archivo está vacío y escribe el encabezado si es necesario
+    // Checks if the file is empty and writes the header if necessary
     fseek(file, 0, SEEK_END);
     if (ftell(file) == 0) {
         fprintf(file, "N,ComputationTime(ms),GFLOPS,CPU,GPU\n");
     }
 
-    // Agrega los datos
+    // Adds the data
     fprintf(file, "%d,%f,%f,0,1\n", N, elapsedTime,flops / 1e9);
 
     fclose(file);

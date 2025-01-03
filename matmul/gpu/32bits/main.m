@@ -5,14 +5,14 @@
 
 int main(int argc, char **argv) {
     @autoreleasepool {
-        // Crea device(representacion de la gpu en Metal)
+        // Creates device
         id<MTLDevice> device = MTLCreateSystemDefaultDevice();
         if (!device) {
             NSLog(@"Error al crear device.\n");
             return -1;
         }
 
-        // Toma argumentos
+        // Takes args
         if (argc < 3) {
             NSLog(@"Se debe ejecutar como ./matmul N check\n");
             return -1;
@@ -35,15 +35,15 @@ int main(int argc, char **argv) {
             return -1;
         }
 
-        // Inicializa matrices con valores al azar
+        // Initializes input matrices with random numbers
         for (int i = 0; i < N * N; ++i) {
             A[i] = (float)(rand() % 100) / 10.0;
             B[i] = (float)(rand() % 100) / 10.0;
         }
-        // Inicializa matriz de resulados con ceros
+        // Initializes result matrix with ceros
         memset(C, 0, N * N * sizeof(float)); 
 
-        // Realiza multiplicacion de matrices
+        // Performs matmul
         MetalMatrixMultiplication *matrixMultiplication = [[MetalMatrixMultiplication alloc] initWithDevice:device];
         [matrixMultiplication performMatrixMultiplicationWithMatrixA:A 
                                                                 rowsA:N 
@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
                                                                 result:C
                                                                 check:check];
 
-        // Liberar memoria
+        // Frees memory
         free(A);
         free(B);
         free(C);
