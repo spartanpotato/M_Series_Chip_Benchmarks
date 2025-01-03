@@ -2,9 +2,15 @@
 A tool to benchmark apple's M series chips. <br />
 Currently there is only time measurement for matmul using apple's MPS and accelerate for single presicion floats.
 
+## Requirements
+- This project is meant to be run on M series chips.
+- Allow powermetrics run without sudo:
+    - sudo visudo
+    - Add to the end "\<user>\ ALL=(ALL) NOPASSWD: /usr/bin/powermetrics"
+- mac core utils to use gdate, to install use "brew install coreutils". 
+
 ## To compile
-Inside the matmul folder both cpu and gpu versions have their own makefiles, move to the folder and use make. <br />
-To use the main program you also need to use make on the matmul folder
+Inside the matmul folder use make, it will make executables for the main program and each matmul implementation.
 
 ## To execute
 Once compiled, inside the same folder use ./matmul N check, where N is the size of the matrices N x N, and check is a boolean that says if you want the program to perform a sequential matmul on cpu to verify the result. You will get the compute time in miliseconds, the gflops, and, if check is '1', wether the result was correct.
@@ -28,3 +34,6 @@ Inside the matmul folder, after having used the script, use "python Graficar.py"
 ## Considerations
 Apple's accelerate depends on the number of cores veclib is allowed to use, to change them use "export VECLIB_MAXIMUM_THREADS=num_cores" <br />
 The gpu implementation has high memory requirements, you need N^2 * 4 * 6 bytes to perform the benchmark.
+
+## Temporary
+When executing gpu matmul implementation you will be prompted to enter your user password, this is because allowing to use powermetrics without a password was not considered a risk, but sudo kill is also used on the code, and it hasn't been decided if its secure to to allow to use it without password.
