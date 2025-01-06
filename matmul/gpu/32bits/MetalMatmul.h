@@ -17,6 +17,7 @@
                                       colsB:(int)colsB
                                      N:(int)N
                                     result:(float *)resultMatrix
-                                    check:(int)check;
+                                    checkResult:(int)checkResult
+                                    checkEnergy:(int)checkEnergy;
 
 @end

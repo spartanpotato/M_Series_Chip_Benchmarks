@@ -9,8 +9,8 @@ for ((i=low; i<=high; i++))
 do
   for ((j=0; j<iterations; j++))
   do
-    ./cpu/32bits/matmul $((2**i)) 0
-    ./gpu/32bits/matmul $((2**i)) 0
+    ./cpu/32bits/matmul $((2**i)) 0 1
+    ./gpu/32bits/matmul $((2**i)) 0 1
   done
 done
 cd ./cpu/32bits && make clean

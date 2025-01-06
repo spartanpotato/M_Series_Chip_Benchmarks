@@ -80,7 +80,8 @@
                                         colsB:(int)colsB
                                        N:(int)N
                                       result:(float *)resultMatrix
-                                      check:(int)check {
+                                      checkResult:(int)checkResult
+                                      checkEnergy:(int)checkEnergy {
     if (colsA != rowsB) {
         NSLog(@"Dimensiones de la matriz invalidas para multiplicacion.");
         return;
@@ -101,6 +102,42 @@
     // Output MPSMatrix creation time
     NSLog(@"Tiempo crear MPSMatrix: %f.", elapsedTime);
     
+    startTime = startTimer();
+    // Set block size (for interleaving, we divide the matrix into sub-blocks)
+    int blockSize = 32;  // Choose an appropriate block size for your GPU's architecture
+    int numBlocksX = (colsA + blockSize - 1) / blockSize;
+    int numBlocksY = (rowsA + blockSize - 1) / blockSize;
+
+
+    // Loop through blocks and perform matrix multiplication on sub-blocks
+    for (int blockX = 0; blockX < numBlocksX; blockX++) {
+        for (int blockY = 0; blockY < numBlocksY; blockY++) {
+
+            // Create MPSMatrix multiplication kernel for each block (this is interleaving)
+            float alpha = 1.0, beta = 0.0;
+            MPSMatrixMultiplication *matMul = [[MPSMatrixMultiplication alloc] initWithDevice:self.device
+                                                                              transposeLeft:NO
+                                                                             transposeRight:NO
+                                                                                resultRows:blockSize
+                                                                             resultColumns:blockSize
+                                                                         interiorColumns:blockSize
+                                                                                    alpha:alpha
+                                                                                     beta:beta];
+            
+            // Create command buffer
+            id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
+
+            // Encode the kernel for each block
+            [matMul encodeToCommandBuffer:commandBuffer leftMatrix:matA rightMatrix:matB resultMatrix:matC];
+
+            // Commit the command
+            [commandBuffer commit];
+            [commandBuffer waitUntilCompleted];
+        }
+    }
+    
+
+    /*
     // Creates a matrix multiplication kernel provided by MPS
     // MPSMatrixMultiplication is the operation alpha * A * B + beta * C.
     // To simulate a matmul calculation, simply set beta to 0
@@ -117,13 +154,15 @@
     // Creates a command buffer to send commands to the GPU
     id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
 
-    // Call a shell command using system() to store energy usage
-    int ret = system("sudo powermetrics -i 1 --sampler cpu_power | while read line; do echo \"$(gdate '+%H:%M:%S.%3N'),$line\"; done | grep -E \"CPU Power|GPU Power\" | awk -F': ' '{print $1 \",\" $2}' >> power_metrics.csv &");
+    if(checkEnergy == 1){
+        // Call a shell command using system() to store energy usage
+        int ret = system("sudo powermetrics -i 1 --sampler cpu_power | while read line; do echo \"$(gdate '+%H:%M:%S.%3N'),$line\"; done | grep -E \"CPU Power|GPU Power\" | awk -F': ' '{print $1 \",\" $2}' >> power_metrics_gpu.csv &");
 
-    if (ret == 0) {
-        NSLog(@"System call succeeded!");
-    } else {
-        NSLog(@"System call failed!");
+        if (ret == 0) {
+            NSLog(@"System call succeeded!");
+        } else {
+            NSLog(@"System call failed!");
+        }
     }
 
     // Timer starts
@@ -136,11 +175,15 @@
     [commandBuffer commit];
     [commandBuffer waitUntilCompleted];
 
+    */
+
     // Timer ends
     elapsedTime = endTimer(startTime);
 
-    // Kills command stop measuring power usage
-    system("sudo pkill -f 'powermetrics'");
+    /*if(checkEnergy == 1){
+        // Kills command stop measuring power usage
+        system("sudo pkill -f 'powermetrics'");
+    }*/
 
     // Calculates FLOPS
     double flops = (2.0 * N * N * N) / (elapsedTime / 1000);
@@ -150,7 +193,7 @@
     NSLog(@"Tiempo computo GPU: %f.", elapsedTime);
 
 
-    if (check == 1){
+    if (checkResult == 1){
         // Creates shared buffer to be used by the cpu
         id<MTLBuffer> stagingBuffer = [self.device newBufferWithLength:(rowsA * colsB * sizeof(float))
                                                            options:MTLResourceStorageModeShared];

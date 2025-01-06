@@ -8,9 +8,11 @@ int main(int argc, char *argv[]) {
     char *hardware = NULL;
     int precision = -1;
     int check = -1;
+    int iterations = 1;
+    int checkEnergy = -1;
 
     int opt;
-    while ((opt = getopt(argc, argv, "n:h:p:c:")) != -1) {
+    while ((opt = getopt(argc, argv, "n:h:p:c:e:i:")) != -1) {
         switch (opt) {
             case 'n':
                 n = atoi(optarg);
@@ -39,25 +41,42 @@ int main(int argc, char *argv[]) {
                     return 1;
                 }
                 break;
+            case 'e':
+                checkEnergy = atoi(optarg);
+                if(checkEnergy != 0 && checkEnergy != 1){
+                    fprintf(stderr, "Invalid checkEnergy. Choose 1 or 0.\n");
+                    return 1;
+                }
+                break;
+            case 'i':
+                iterations = atoi(optarg);
+                if(iterations <= 0){
+                    fprintf(stderr, "Invalid iterations. Choose positive integer.\n");
+                    return 1;
+                }
+                break;
             case '?':
-                printf("Usage: ./prog -n <value> -h <cpu|gpu> -p <16|32|64> -c <1|0>\n");
+                printf("Usage: ./prog -n <value> -hw <cpu|gpu> -p <16|32|64> -c <1|0>\n -e <1|0> -i <value>\n");
                 return 1;
             default:
-                printf("Usage: ./prog -n <value> -hw <cpu|gpu> -p <16|32|64> -c <1|0>\n");
+                printf("Usage: ./prog -n <value> -hw <cpu|gpu> -p <16|32|64> -c <1|0>\n -e <1|0> -i <value>\n");
                 return 1;
         }
     }
 
-    if (n == -1 || hardware == NULL || precision == -1 || check == -1) {
+    if (n == -1 || hardware == NULL || precision == -1 || check == -1 || checkEnergy == -1) {
         fprintf(stderr, "Error: Missing required parameters.\n");
-        printf("Usage: ./prog -n <value> -hw <cpu|gpu> -p <16|32|64> -c <1|0>\n");
+        printf("Usage: ./prog -n <value> -hw <cpu|gpu> -p <16|32|64> -c <1|0>\n -e <1|0> -i <value>\n");
         return 1;
     }
 
     char commandBuffer[1024];
-    snprintf(commandBuffer, 1024, "./%s/%dbits/matmul %d %d", hardware, precision, n, check);
+    snprintf(commandBuffer, 1024, "./%s/%dbits/matmul %d %d %d", hardware, precision, n, check, checkEnergy);
     printf("Command: %s\n", commandBuffer);
-    system(commandBuffer);
+
+    for(int i = 0; i < iterations; i++){
+        system(commandBuffer);
+    }
 
 
     return 0;

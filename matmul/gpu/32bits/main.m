@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
 
         // Takes args
         if (argc < 3) {
-            NSLog(@"Se debe ejecutar como ./matmul N check\n");
+            NSLog(@"Se debe ejecutar como ./matmul N checkResult checkEnergy\n");
             return -1;
         }
         
@@ -24,7 +24,8 @@ int main(int argc, char **argv) {
             return -1;
         }
 
-        int check = atoi(argv[2]);
+        int checkResult = atoi(argv[2]);
+        int checkEnergy = atoi(argv[3]);
 
         float *A = malloc(N * N * sizeof(float));
         float *B = malloc(N * N * sizeof(float));
@@ -53,7 +54,8 @@ int main(int argc, char **argv) {
                                                                 colsB:N 
                                                                 N:N 
                                                                 result:C
-                                                                check:check];
+                                                                checkResult:checkResult
+                                                                checkEnergy:checkEnergy];
 
         // Frees memory
         free(A);
