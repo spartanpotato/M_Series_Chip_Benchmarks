@@ -7,6 +7,7 @@ SRC = main.c
 all: $(TARGET)
 	make -C cpu/32bits
 	make -C gpu/32bits
+	make -C gpu/16bits
 	make -C power_sampling
 
 
@@ -17,4 +18,5 @@ clean:
 	rm -f $(TARGET)
 	make -C cpu/32bits clean
 	make -C gpu/32bits clean
+	make -C gpu/16bits clean
 	make -C power_sampling clean

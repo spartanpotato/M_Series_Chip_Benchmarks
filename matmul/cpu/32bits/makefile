@@ -4,7 +4,7 @@ LDFLAGS = -framework Accelerate
 
 TARGET = matmul 
 
-SRC = main.c ../../Verify.c
+SRC = main.c ../../utils/Verify.c
 
 all: $(TARGET)
 

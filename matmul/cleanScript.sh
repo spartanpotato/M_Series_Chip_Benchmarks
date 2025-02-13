@@ -1,15 +1,22 @@
 #!/bin/bash
-if [ -f "power_metrics_cpu.csv" ]; then
-    rm "power_metrics_cpu.csv"
-    echo "File power_metrics_cpu.csv has been deleted."
-fi
 
-if [ -f "power_metrics_gpu.csv" ]; then
-    rm "power_metrics_gpu.csv"
-    echo "File power_metrics_gpu.csv has been deleted."
-fi
+# Folders to clear
+FOLDER_PATH1="./outputs/csvs"
+FOLDER_PATH2="./outputs/graphs"
 
-if [ -f "power_sampling/power_metrics.csv" ]; then
-    rm "power_sampling/power_metrics.csv"
-    echo "File power_metrics.csv has been deleted."
-fi
+# Function to delete files in a folder
+delete_files_in_folder() {
+  local FOLDER_PATH="$1"
+
+  if [ -d "$FOLDER_PATH" ]; then
+    rm -f "$FOLDER_PATH"/*
+    echo "All files in '$FOLDER_PATH' have been deleted."
+  else
+    echo "The folder '$FOLDER_PATH' does not exist."
+  fi
+}
+
+# Clear files in both folders
+delete_files_in_folder "$FOLDER_PATH1"
+delete_files_in_folder "$FOLDER_PATH2"
+
